@@ -1,0 +1,869 @@
+<title>Отбивалка</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--bg:#07080f;--accent:#00e5ff;--hot:#ff2060;color-scheme:dark;}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
+body{display:flex;align-items:center;justify-content:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  font-family:'Courier New',monospace;}
+canvas{display:block;touch-action:none;}
+#hud{position:fixed;top:max(12px,env(safe-area-inset-top,0px));
+  left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+  padding:0 max(20px,env(safe-area-inset-left,0px));
+  pointer-events:none;z-index:5;font-size:clamp(11px,3vw,15px);letter-spacing:1px;}
+#sc{color:var(--accent);text-shadow:0 0 10px currentColor;}
+#combo{color:var(--hot);font-size:clamp(14px,4vw,22px);font-weight:bold;letter-spacing:3px;}
+#pausebtn{pointer-events:all;background:transparent;border:1px solid rgba(0,229,255,.4);
+  color:var(--accent);font-family:'Courier New',monospace;font-size:13px;
+  padding:4px 12px;cursor:pointer;letter-spacing:2px;text-shadow:0 0 8px var(--accent);}
+
+#pmenu{position:fixed;inset:0;display:none;z-index:20;
+  background:rgba(7,8,15,.93);overflow-y:auto;}
+#pmenu.open{display:block;}
+
+.menu-tabs{display:flex;width:90%;max-width:360px;margin:20px auto 0;}
+.mtab{flex:1;background:transparent;border:1px solid rgba(0,229,255,.25);
+  color:#aac;font-family:'Courier New',monospace;font-size:12px;letter-spacing:2px;
+  padding:10px 4px;cursor:pointer;transition:.15s;}
+.mtab:first-child{border-right:none;}
+.mtab.active{background:rgba(0,229,255,.08);color:var(--accent);
+  border-color:var(--accent);text-shadow:0 0 8px var(--accent);}
+
+.panel{background:rgba(0,229,255,.04);border:1px solid rgba(0,229,255,.22);
+  border-top:none;padding:20px 24px;width:90%;max-width:360px;
+  display:none;flex-direction:column;gap:16px;
+  box-shadow:0 0 40px rgba(0,229,255,.1);margin:0 auto 20px;}
+.panel.active{display:flex;}
+
+.sec-title{color:rgba(0,229,255,.5);font-size:10px;letter-spacing:3px;
+  border-bottom:1px solid rgba(0,229,255,.1);padding-bottom:6px;}
+.row{display:flex;flex-direction:column;gap:5px;}
+.row label{color:#aac;font-size:11px;letter-spacing:2px;
+  display:flex;justify-content:space-between;}
+.row label span{color:var(--accent);}
+.shapes{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+.sbtn{background:transparent;border:1px solid rgba(0,229,255,.3);
+  color:#aac;font-family:'Courier New',monospace;font-size:18px;
+  width:44px;height:44px;cursor:pointer;transition:.15s;
+  display:flex;align-items:center;justify-content:center;}
+.sbtn.active{border-color:var(--accent);color:var(--accent);box-shadow:0 0 10px var(--accent);}
+input[type=range]{-webkit-appearance:none;appearance:none;
+  width:100%;height:4px;background:rgba(0,229,255,.2);outline:none;
+  border-radius:2px;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;
+  border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);cursor:pointer;}
+.toggle-row{display:flex;}
+.tbtn{background:transparent;border:1px solid rgba(0,229,255,.3);
+  color:#aac;font-family:'Courier New',monospace;font-size:11px;letter-spacing:1px;
+  flex:1;padding:8px 4px;cursor:pointer;transition:.15s;}
+.tbtn.active{border-color:var(--accent);color:var(--accent);box-shadow:0 0 8px var(--accent);}
+
+#balltabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.btab{width:34px;height:34px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:.15s;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:bold;color:#000;}
+.btab.active{border-color:#fff;box-shadow:0 0 10px rgba(255,255,255,.5);}
+.icobtn{background:transparent;border:1px solid rgba(0,229,255,.4);
+  color:var(--accent);font-size:18px;width:32px;height:32px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+.themes{display:flex;gap:8px;flex-wrap:wrap;}
+.thswatch{width:36px;height:36px;border-radius:4px;cursor:pointer;
+  border:2px solid transparent;transition:.15s;}
+.thswatch.active{border-color:#fff;box-shadow:0 0 10px currentColor;}
+
+.resume{background:transparent;border:1px solid var(--accent);
+  color:var(--accent);font-family:'Courier New',monospace;letter-spacing:3px;
+  font-size:13px;padding:10px;cursor:pointer;width:100%;
+  text-shadow:0 0 8px var(--accent);}
+.resume:active{background:var(--accent);color:var(--bg);}
+</style>
+
+<div id="hud">
+  <span id="sc">0</span>
+  <span id="combo" style="opacity:0"></span>
+  <button id="pausebtn">⏸ ПАУЗА</button>
+</div>
+<canvas id="c"></canvas>
+
+<div id="pmenu">
+  <div class="menu-tabs">
+    <button class="mtab active" data-tab="balls">ШАРЫ</button>
+    <button class="mtab" data-tab="field">ПОЛЕ</button>
+  </div>
+
+  <!-- ШАРЫ panel -->
+  <div class="panel active" id="tab-balls">
+    <div class="row">
+      <div class="sec-title">ШАРЫ</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+        <div id="balltabs"></div>
+        <button class="icobtn" id="addball">+</button>
+        <button class="icobtn" id="rmball">−</button>
+      </div>
+    </div>
+    <div class="row"><div class="sec-title" id="ballsec-title">ШАР 1</div></div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="row">
+        <label>ФОРМА</label>
+        <div class="shapes" id="shapebtns">
+          <button class="sbtn active" data-shape="circle">●</button>
+          <button class="sbtn" data-shape="square">■</button>
+          <button class="sbtn" data-shape="triangle">▲</button>
+          <button class="sbtn" data-shape="star">★</button>
+        </div>
+      </div>
+      <div class="row"><label>СКОРОСТЬ <span id="bvval">4</span></label>
+        <input type="range" id="bvslider" min="1" max="12" step="0.5" value="4"></div>
+      <div class="row"><label>ЦВЕТ <span id="bhval">180°</span></label>
+        <input type="range" id="bhslider" min="0" max="359" value="180"></div>
+      <div class="row"><label>СМЕНА ЦВЕТА <span id="bhsval">30</span></label>
+        <input type="range" id="bhsslider" min="0" max="120" value="30"></div>
+      <div class="row"><label>ПУЛЬСАЦИЯ <span id="bszval">0</span></label>
+        <input type="range" id="bszslider" min="0" max="10" step="0.5" value="0"></div>
+    </div>
+    <div class="row"><div class="sec-title">ГЛОБАЛЬНО</div></div>
+    <div class="row"><label>ГРАВИТАЦИЯ <span id="grval">ВЫКЛ</span></label>
+      <div class="toggle-row">
+        <button class="tbtn active" id="goff">ВЫКЛ</button>
+        <button class="tbtn" id="gon">ВКЛ</button>
+      </div>
+    </div>
+    <button class="resume" id="resumebtn1">▶ ПРОДОЛЖИТЬ</button>
+  </div>
+
+  <!-- ПОЛЕ panel -->
+  <div class="panel" id="tab-field">
+    <div class="row">
+      <div class="sec-title">ФОРМА ПОЛЯ</div>
+      <div class="shapes" id="fieldshapebtns" style="margin-top:6px;">
+        <button class="sbtn active" data-fshape="rect"    style="font-size:22px;">▭</button>
+        <button class="sbtn"        data-fshape="circle"  style="font-size:22px;">◯</button>
+        <button class="sbtn"        data-fshape="hex"     style="font-size:20px;">⬡</button>
+        <button class="sbtn"        data-fshape="tri"     style="font-size:20px;">△</button>
+        <button class="sbtn"        data-fshape="diamond" style="font-size:20px;">◇</button>
+      </div>
+    </div>
+    <div class="row"><label>ГРАНИЦЫ ПОЛЯ <span id="fbval">ВКЛ</span></label>
+      <div class="toggle-row">
+        <button class="tbtn active" id="fbon">ВКЛ</button>
+        <button class="tbtn" id="fboff">ВыКЛ (весь экран)</button>
+      </div>
+    </div>
+    <div class="row"><label>РАЗМЕР ПОЛЯ <span id="fscaleval">92</span>%</label>
+      <input type="range" id="fscaleslider" min="30" max="100" step="2" value="70"></div>
+    <div class="row"><div class="sec-title">ФОН ЗА ПОЛЕМ</div></div>
+    <div class="row"><label>ЦВЕТ ФОНа <span id="obhval">0°</span></label>
+      <input type="range" id="obhslider" min="0" max="359" value="0"></div>
+    <div class="row"><label>ЯРКОСТЬ <span id="oblval">5</span>%</label>
+      <input type="range" id="oblslider" min="0" max="35" step="1" value="5"></div>
+    <div class="row"><label>УЗОР</label>
+      <div class="toggle-row">
+        <button class="tbtn active" id="pat-solid" style="font-size:10px;">ЗАЛИВКА</button>
+        <button class="tbtn" id="pat-scan" style="font-size:10px;">ПОЛОСЫ</button>
+        <button class="tbtn" id="pat-dots" style="font-size:10px;">ТОЧКИ</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="sec-title">ТЕМА</div>
+      <div class="themes" id="themes" style="margin-top:6px;"></div>
+    </div>
+    <div class="row"><div class="sec-title">СЕТКА</div></div>
+    <div class="row"><label>СЕТКА <span id="gridOnVal">ВКЛ</span></label>
+      <div class="toggle-row">
+        <button class="tbtn active" id="gridOn">ВКЛ</button>
+        <button class="tbtn" id="gridOff">ВЫКЛ</button>
+      </div>
+    </div>
+    <div class="row"><label>РАЗМЕР ЯЧЕЙКИ <span id="gsval">36</span></label>
+      <input type="range" id="gsslider" min="16" max="80" step="4" value="36"></div>
+    <div class="row"><label>ЯРКОСТЬ СЕТКИ <span id="gopal">3</span></label>
+      <input type="range" id="gopaslider" min="0" max="12" step="1" value="3"></div>
+    <div class="row"><div class="sec-title">ПРЕПЯТСТВИЯ</div></div>
+    <div class="row"><label>КОЛИЧЕСТВО БАМПЕРОВ <span id="bumpval">0</span></label>
+      <input type="range" id="bumpslider" min="0" max="10" step="1" value="0"></div>
+    <div class="row"><label>РАЗМЕР БАМПЕРОВ <span id="bumpsizeval">20</span></label>
+      <input type="range" id="bumpsizeslider" min="10" max="50" step="2" value="20"></div>
+    <div class="row" style="margin-top:2px;">
+      <button class="tbtn" id="reshufflebtn" style="letter-spacing:1px;padding:8px;">
+        ⟳ ПЕРЕМЕШАТЬ БАМПЕРЫ
+      </button>
+    </div>
+    <div class="row"><div class="sec-title">СЛЕД</div></div>
+    <div class="row"><label>ДЛИНА СЛЕДА <span id="trailval">32</span></label>
+      <input type="range" id="trailslider" min="4" max="80" step="4" value="32"></div>
+    <div class="row"><label>ЗАТУХАНИЕ ФОНА <span id="fadeval">80</span>%</label>
+      <input type="range" id="fadeslider" min="30" max="99" step="1" value="80"></div>
+    <button class="resume" id="resumebtn2">▶ ПРОДОЛЖИТЬ</button>
+  </div>
+</div>
+
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const scEl=document.getElementById('sc'),comboEl=document.getElementById('combo');
+const pmenu=document.getElementById('pmenu');
+
+// ─── Field & global settings ───────────────────────────────────────────────
+const F={
+  gridOn:true,gridSize:36,gridOpa:3,
+  trailLen:32,bgFade:80,
+  accent:[0,229,255],accentH:180,
+  bumperCount:0,bumperSize:20,
+  fieldShape:'rect',fieldScale:0.70,
+  outerBgH:0,outerBgL:5,outerPattern:'solid',
+  fieldBounds:true
+};
+let bumpers=[];let shockwaves=[];
+
+// ─── Themes ────────────────────────────────────────────────────────────────
+const THEMES=[
+  {name:'CYAN',   h:185,bg:'#07080f',rgb:[0,229,255]},
+  {name:'GREEN',  h:120,bg:'#050f07',rgb:[0,255,120]},
+  {name:'VIOLET', h:270,bg:'#090710',rgb:[180,80,255]},
+  {name:'PINK',   h:320,bg:'#0f050c',rgb:[255,60,180]},
+  {name:'ORANGE', h:30, bg:'#0f0800',rgb:[255,160,0]},
+  {name:'WHITE',  h:200,bg:'#060608',rgb:[200,220,255]},
+];
+let currentTheme=0;
+
+function applyTheme(i){
+  currentTheme=i;const t=THEMES[i];
+  document.documentElement.style.setProperty('--accent',`rgb(${t.rgb.join(',')})`);
+  document.body.style.background=t.bg;
+  F.accent=t.rgb;F.accentH=t.h;
+  document.querySelectorAll('.thswatch').forEach((s,j)=>s.classList.toggle('active',j===i));
+}
+const thCt=document.getElementById('themes');
+THEMES.forEach((t,i)=>{
+  const s=document.createElement('div');
+  s.className='thswatch'+(i===0?' active':'');
+  s.style.background=`hsl(${t.h},100%,55%)`;
+  s.style.boxShadow=`0 0 8px hsl(${t.h},100%,55%)`;
+  s.title=t.name;s.onclick=()=>applyTheme(i);thCt.appendChild(s);
+});
+
+// ─── Canvas & balls ────────────────────────────────────────────────────────
+let W,H,balls=[],selectedBall=0;
+let score=0,running=false,paused=false;
+let particles=[],ripples=[],gridWaves=[],flashes=[];
+let comboCount=0,comboTimer=0,gravity=0;
+let gravX=0,gravY=0,gravDir=0; // gravDir: 0=down,1=left,2=up,3=right
+const baseR=14;
+
+const AC=new(window.AudioContext||window.webkitAudioContext)();
+function tone(f,d,t='sine',v=.12){
+  try{const o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);o.type=t;o.frequency.value=f;
+    g.gain.setValueAtTime(v,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);
+    o.start();o.stop(AC.currentTime+d);}catch(e){}
+}
+
+function resize(){W=cv.width=Math.min(window.innerWidth,480);H=cv.height=window.innerHeight;}
+resize();window.addEventListener('resize',()=>{resize();makeBumpers();});
+
+function bColor(h){return`hsl(${((h%360)+360)%360},100%,60%)`;}
+
+function makeBall(i,total){
+  const a=Math.random()*Math.PI*2,spd=4;
+  return{x:W*.3+Math.random()*W*.4,y:H*.3+Math.random()*H*.4,
+    vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
+    hue:(F.accentH+i*(360/Math.max(total,1)))%360,
+    trail:[],bounces:0,r:baseR,angle:0,sizePhase:Math.random()*Math.PI*2,
+    shape:'circle',speed:spd,hueShift:30,sizeAmp:0};
+}
+function initBalls(n){balls=[];for(let i=0;i<n;i++)balls.push(makeBall(i,n));}
+
+// ─── Field geometry ────────────────────────────────────────────────────────
+// All polygon vertex sets are CW in screen coords → left-hand normal is inward
+function getFieldVerts(){
+  const s=F.fieldScale,cx=W/2,cy=H/2,rx=W/2*s,ry=H/2*s;
+  switch(F.fieldShape){
+    case'rect':
+      return [{x:cx-rx,y:cy-ry},{x:cx+rx,y:cy-ry},{x:cx+rx,y:cy+ry},{x:cx-rx,y:cy+ry}];
+    case'hex':{
+      const R=Math.min(rx,ry);
+      return Array.from({length:6},(_,i)=>{
+        const a=Math.PI/6+i*Math.PI/3;
+        return{x:cx+Math.cos(a)*R,y:cy+Math.sin(a)*R};
+      });
+    }
+    case'tri':{
+      const R=Math.min(rx,ry)*1.15;
+      return Array.from({length:3},(_,i)=>{
+        const a=-Math.PI/2+i*2*Math.PI/3;
+        return{x:cx+Math.cos(a)*R,y:cy+Math.sin(a)*R};
+      });
+    }
+    case'diamond':
+      return [{x:cx,y:cy-ry},{x:cx+rx,y:cy},{x:cx,y:cy+ry},{x:cx-rx,y:cy}];
+    default: return null;
+  }
+}
+
+function makeFieldPath(){
+  const cx=W/2,cy=H/2;
+  if(F.fieldShape==='circle'){
+    const R=Math.min(W,H)/2*F.fieldScale;
+    ctx.moveTo(cx+R,cy);ctx.arc(cx,cy,R,0,Math.PI*2);
+  } else {
+    const v=getFieldVerts();
+    ctx.moveTo(v[0].x,v[0].y);
+    for(let i=1;i<v.length;i++)ctx.lineTo(v[i].x,v[i].y);
+    ctx.closePath();
+  }
+}
+
+function drawFieldBorder(){
+  const[r,g,b]=F.accent;
+  ctx.shadowColor=`rgb(${r},${g},${b})`;ctx.shadowBlur=24;
+  ctx.strokeStyle=`rgba(${r},${g},${b},.75)`;ctx.lineWidth=2.5;
+  ctx.beginPath();makeFieldPath();ctx.stroke();
+  ctx.shadowBlur=0;
+}
+
+// Returns true if point (px,py) is inside the field (with optional inward margin)
+function insideField(px,py,margin=0){
+  const cx=W/2,cy=H/2;
+  if(F.fieldShape==='circle'){
+    const R=Math.min(W,H)/2*F.fieldScale;
+    return Math.hypot(px-cx,py-cy)<R-margin;
+  }
+  const v=getFieldVerts();
+  for(let i=0;i<v.length;i++){
+    const a=v[i],c=v[(i+1)%v.length];
+    const ex=c.x-a.x,ey=c.y-a.y,len=Math.hypot(ex,ey);
+    const nx=-ey/len,ny=ex/len; // inward normal
+    if((px-a.x)*nx+(py-a.y)*ny<margin) return false;
+  }
+  return true;
+}
+
+// Field collision: reflect ball off field boundary. Returns true if bounced.
+function checkField(b){
+  const cx=W/2,cy=H/2;
+  if(F.fieldShape==='circle'){
+    const R=Math.min(W,H)/2*F.fieldScale;
+    const dx=b.x-cx,dy=b.y-cy,d=Math.hypot(dx,dy);
+    if(d+b.r>R&&d>.01){
+      const nx=dx/d,ny=dy/d;
+      // push inside
+      b.x=cx+nx*(R-b.r-.5);b.y=cy+ny*(R-b.r-.5);
+      const dot=b.vx*nx+b.vy*ny;
+      if(dot>0){b.vx-=2*dot*nx;b.vy-=2*dot*ny;return true;}
+    }
+    return false;
+  }
+  // polygon
+  let hit=false;
+  const v=getFieldVerts();
+  for(let i=0;i<v.length;i++){
+    const a=v[i],c=v[(i+1)%v.length];
+    const ex=c.x-a.x,ey=c.y-a.y,len=Math.hypot(ex,ey);
+    const nx=-ey/len,ny=ex/len;
+    const dist=(b.x-a.x)*nx+(b.y-a.y)*ny;
+    if(dist<b.r){
+      b.x+=nx*(b.r-dist+.5);b.y+=ny*(b.r-dist+.5);
+      const dot=b.vx*nx+b.vy*ny;
+      if(dot<0){b.vx-=2*dot*nx;b.vy-=2*dot*ny;hit=true;}
+    }
+  }
+  return hit;
+}
+
+// ─── Bumpers ───────────────────────────────────────────────────────────────
+function makeBumpers(){
+  bumpers=[];
+  for(let i=0;i<F.bumperCount;i++){
+    let x,y,tries=0;
+    do{x=W*.1+Math.random()*W*.8;y=H*.15+Math.random()*H*.7;tries++;}
+    while(!insideField(x,y,F.bumperSize+24)&&tries<120);
+    if(insideField(x,y,F.bumperSize)) bumpers.push({x,y,r:F.bumperSize});
+  }
+}
+
+// ─── Effects ───────────────────────────────────────────────────────────────
+function spark(x,y,col,n=8){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=2+Math.random()*6;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,col,size:2+Math.random()*4});
+  }
+}
+function ripple(x,y,col,big){ripples.push({x,y,r:big?20:8,maxR:big?120:62,col,life:1,lw:big?3:2});}
+function gridWave(x,y,col){gridWaves.push({x,y,r:0,col,life:1});}
+function flash(col){flashes.push({life:1,col});}
+function showCombo(n){comboEl.textContent=n>1?`×${n} COMBO`:'';comboEl.style.opacity=n>1?'1':'0';}
+
+// ─── Draw ──────────────────────────────────────────────────────────────────
+function drawGrid(){
+  if(!F.gridOn)return;
+  const opa=(F.gridOpa/100).toFixed(3);
+  const[r,g,b]=F.accent,s=F.gridSize;
+  ctx.lineWidth=1;
+  for(let x=0;x<W;x+=s){
+    ctx.strokeStyle=`rgba(${r},${g},${b},${opa})`;
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+  }
+  for(let y=0;y<H;y+=s){
+    ctx.strokeStyle=`rgba(${r},${g},${b},${opa})`;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+  }
+  for(let i=gridWaves.length-1;i>=0;i--){
+    const w=gridWaves[i];
+    const s0=Math.floor((w.x-w.r)/s)*s,s1=Math.floor((w.y-w.r)/s)*s;
+    for(let gx=s0;gx<=w.x+w.r;gx+=s)for(let gy=s1;gy<=w.y+w.r;gy+=s){
+      const d=Math.hypot(gx-w.x,gy-w.y);
+      if(d>w.r-14&&d<w.r+14){
+        ctx.globalAlpha=Math.max(0,w.life*(1-Math.abs(d-w.r)/14))*.7;
+        ctx.fillStyle=w.col;ctx.shadowColor=w.col;ctx.shadowBlur=5;
+        ctx.beginPath();ctx.arc(gx,gy,2.5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      }
+    }
+    ctx.globalAlpha=1;
+    w.r+=3.5;w.life-=.018;if(w.life<=0)gridWaves.splice(i,1);
+  }
+}
+
+function drawBumpers(){
+  bumpers.forEach(bmp=>{
+    const[r,g,b]=F.accent;
+    ctx.shadowColor=`rgb(${r},${g},${b})`;ctx.shadowBlur=18;
+    ctx.strokeStyle=`rgba(${r},${g},${b},.8)`;ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(bmp.x,bmp.y,bmp.r,0,Math.PI*2);ctx.stroke();
+    const gr=ctx.createRadialGradient(bmp.x,bmp.y,0,bmp.x,bmp.y,bmp.r);
+    gr.addColorStop(0,`rgba(${r},${g},${b},.12)`);
+    gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
+    ctx.fillStyle=gr;ctx.fill();ctx.shadowBlur=0;
+  });
+}
+
+function drawShape(b){
+  const{x,y,r,angle,shape,hue}=b;
+  const col=bColor(hue);
+  ctx.shadowColor=col;ctx.shadowBlur=26;
+  const g=ctx.createRadialGradient(x-r*.25,y-r*.25,1,x,y,r*1.1);
+  g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(.3,col);g.addColorStop(1,bColor(hue+70));
+  ctx.fillStyle=g;
+  ctx.save();ctx.translate(x,y);
+  if(shape!=='circle')ctx.rotate(angle);
+  ctx.beginPath();
+  switch(shape){
+    case'circle':ctx.arc(0,0,r,0,Math.PI*2);break;
+    case'square':{const s=r*1.4;ctx.rect(-s/2,-s/2,s,s);break;}
+    case'triangle':{const h=r*1.7;
+      ctx.moveTo(0,-h*.7);ctx.lineTo(h*.65,h*.5);ctx.lineTo(-h*.65,h*.5);ctx.closePath();break;}
+    case'star':{
+      for(let i=0;i<10;i++){
+        const a=Math.PI/5*i-Math.PI/2,ri=i%2===0?r:r*.45;
+        i===0?ctx.moveTo(Math.cos(a)*ri,Math.sin(a)*ri):ctx.lineTo(Math.cos(a)*ri,Math.sin(a)*ri);
+      }ctx.closePath();break;}
+  }
+  ctx.fill();ctx.restore();ctx.shadowBlur=0;
+}
+
+// ─── Game loop ─────────────────────────────────────────────────────────────
+let lastT=0;
+function loop(ts){
+  if(!running)return;
+  const dt=Math.min((ts-lastT)/16,3);lastT=ts;
+
+  if(!paused){
+    for(const b of balls){
+      b.sizePhase+=0.05*dt;
+      b.r=Math.max(4,baseR+Math.sin(b.sizePhase)*b.sizeAmp);
+      if(gravity){b.vx+=gravX*0.25*dt;b.vy+=gravY*0.25*dt;}
+      b.x+=b.vx*dt;b.y+=b.vy*dt;
+      if(b.shape!=='circle')b.angle+=Math.hypot(b.vx,b.vy)*0.018*dt;
+
+      const onBounce=()=>{
+        b.bounces++;b.hue=(b.hue+b.hueShift)%360;
+        score++;scEl.textContent=score;
+        tone(180+Math.min(b.bounces*18,500),.09,'square',.1);
+        spark(b.x,b.y,bColor(b.hue),6);
+        ripple(b.x,b.y,bColor(b.hue));
+        gridWave(b.x,b.y,bColor(b.hue));
+        if(b.bounces%5===0)flash(bColor(b.hue));
+        comboCount++;comboTimer=60;showCombo(comboCount);
+      };
+
+      if(F.fieldBounds){
+        if(checkField(b))onBounce();
+      } else {
+        // full-screen bounce
+        if(b.x-b.r<0){b.x=b.r;b.vx=Math.abs(b.vx);onBounce();}
+        if(b.x+b.r>W){b.x=W-b.r;b.vx=-Math.abs(b.vx);onBounce();}
+        if(b.y-b.r<0){b.y=b.r;b.vy=Math.abs(b.vy);onBounce();}
+        if(b.y+b.r>H){
+          b.y=H-b.r;
+          if(gravity&&Math.abs(b.vy)<b.speed*.4)b.vy=-b.speed*.8;else b.vy=-Math.abs(b.vy);
+          onBounce();
+        }
+      }
+
+      // Bumper collisions
+      for(const bmp of bumpers){
+        const dx=b.x-bmp.x,dy=b.y-bmp.y,dist=Math.hypot(dx,dy),mn=b.r+bmp.r;
+        if(dist<mn&&dist>.01){
+          const nx=dx/dist,ny=dy/dist;
+          b.x=bmp.x+nx*(mn+.5);b.y=bmp.y+ny*(mn+.5);
+          const dot=b.vx*nx+b.vy*ny;
+          b.vx-=2*dot*nx;b.vy-=2*dot*ny;
+          b.hue=(b.hue+b.hueShift*2)%360;
+          tone(350+Math.random()*200,.07,'square',.13);
+          spark(b.x,b.y,bColor(b.hue),12);
+          ripple(b.x,b.y,bColor(b.hue),true);
+          flash(bColor(b.hue));
+          score+=2;scEl.textContent=score;
+          comboCount+=2;comboTimer=80;showCombo(comboCount);
+        }
+      }
+
+      b.trail.push({x:b.x,y:b.y,r:b.r});
+      if(b.trail.length>F.trailLen)b.trail.shift();
+    }
+
+    // Ball-ball collisions
+    for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
+      const a=balls[i],b=balls[j];
+      const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),mn=a.r+b.r;
+      if(dist<mn&&dist>.01){
+        const nx=dx/dist,ny=dy/dist,ov=(mn-dist)/2;
+        a.x-=nx*ov;a.y-=ny*ov;b.x+=nx*ov;b.y+=ny*ov;
+        const dot=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+        if(dot>0){
+          a.vx-=dot*nx;a.vy-=dot*ny;b.vx+=dot*nx;b.vy+=dot*ny;
+          const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2,col=bColor((a.hue+b.hue)/2);
+          spark(cx,cy,col,20);ripple(cx,cy,col,true);gridWave(cx,cy,col);flash(col);
+          tone(440,.12,'sawtooth',.15);tone(330,.18,'square',.1);
+          score+=3;scEl.textContent=score;comboCount+=3;comboTimer=90;showCombo(comboCount);
+        }
+      }
+    }
+
+    if(comboTimer>0){comboTimer-=dt;if(comboTimer<=0){comboCount=0;showCombo(0);}}
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.1;p.life-=.04;
+      if(p.life<=0)particles.splice(i,1);
+    }
+    for(let i=ripples.length-1;i>=0;i--){
+      const r=ripples[i];r.r+=3;r.life=1-r.r/r.maxR;if(r.life<=0)ripples.splice(i,1);
+    }
+  }
+
+  // ── Draw frame ──
+  const t=THEMES[currentTheme];
+  const fadeA=(100-F.bgFade)/100;
+
+  // 1. Fill outside field (even-odd clip trick) — only when fieldBounds on
+  if(!F.fieldBounds){
+    // full canvas bg fade
+    ctx.globalAlpha=fadeA;ctx.fillStyle=t.bg;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+  } else {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0,0,W,H);
+  makeFieldPath();
+  ctx.clip('evenodd');
+  // outer bg
+  ctx.fillStyle=`hsl(${F.outerBgH},20%,${F.outerBgL}%)`;
+  ctx.fillRect(0,0,W,H);
+  if(F.outerPattern==='scan'){
+    const lc=`hsl(${F.outerBgH},60%,${Math.min(F.outerBgL+40,85)}%)`;
+    ctx.globalAlpha=.45;ctx.fillStyle=lc;
+    for(let y=0;y<H;y+=10){ctx.fillRect(0,y,W,4);}ctx.globalAlpha=1;
+  } else if(F.outerPattern==='dots'){
+    const dc=`hsl(${F.outerBgH},60%,${Math.min(F.outerBgL+45,85)}%)`;
+    ctx.globalAlpha=.5;ctx.fillStyle=dc;
+    for(let x=8;x<W;x+=18)for(let y=8;y<H;y+=18){
+      ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill();
+    }ctx.globalAlpha=1;
+  }
+  ctx.restore();}
+
+  // 2. Inside field: fade + draw everything
+  ctx.save();
+  if(F.fieldBounds){ctx.beginPath();makeFieldPath();ctx.clip();}
+
+  ctx.globalAlpha=fadeA;ctx.fillStyle=t.bg;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+
+  drawGrid();
+  drawBumpers();
+
+  for(let i=flashes.length-1;i>=0;i--){
+    const f=flashes[i];ctx.globalAlpha=f.life*.13;ctx.fillStyle=f.col;
+    ctx.fillRect(0,0,W,H);f.life-=.07;if(f.life<=0)flashes.splice(i,1);
+  }ctx.globalAlpha=1;
+
+  ripples.forEach(r=>{
+    ctx.globalAlpha=r.life*.4;ctx.strokeStyle=r.col;ctx.lineWidth=r.lw||2;
+    ctx.shadowColor=r.col;ctx.shadowBlur=10;
+    ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);ctx.stroke();
+    ctx.shadowBlur=0;ctx.globalAlpha=1;
+  });
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.life;ctx.fillStyle=p.col;ctx.shadowColor=p.col;ctx.shadowBlur=5;
+    ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);ctx.shadowBlur=0;
+  });ctx.globalAlpha=1;
+
+  for(const b of balls){
+    for(let i=0;i<b.trail.length;i++){
+      const tr=b.trail[i],a=(i+1)/b.trail.length*.28;
+      ctx.globalAlpha=a;ctx.fillStyle=bColor(b.hue+i*3);
+      ctx.beginPath();ctx.arc(tr.x,tr.y,(tr.r||b.r)*.5,0,Math.PI*2);ctx.fill();
+    }ctx.globalAlpha=1;
+    drawShape(b);
+  }
+  ctx.restore();
+
+  // shockwaves
+  for(let i=shockwaves.length-1;i>=0;i--){
+    const sw=shockwaves[i];
+    const t2=sw.age/sw.maxAge;
+    const[r,g,b]=F.accent;
+    ctx.beginPath();ctx.arc(sw.x,sw.y,sw.r,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(${r},${g},${b},${(1-t2)*0.9})`;
+    ctx.lineWidth=(1-t2)*8+1;
+    ctx.shadowColor=`rgb(${r},${g},${b})`;ctx.shadowBlur=20*(1-t2);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+    // inner ring
+    if(sw.r>20){
+      ctx.beginPath();ctx.arc(sw.x,sw.y,sw.r*.6,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(${r},${g},${b},${(1-t2)*0.4})`;
+      ctx.lineWidth=(1-t2)*3;
+      ctx.stroke();
+    }
+    sw.r+=sw.maxR/sw.maxAge*1.6;
+    sw.age++;
+    if(sw.age>=sw.maxAge)shockwaves.splice(i,1);
+  }
+  ctx.lineWidth=1;
+  // gravity dir indicator
+  if(gravDirTimer>0){
+    gravDirTimer-=dt;
+    gdEl.textContent=gravity?GRAV_ICONS[gravDir]:'';
+    gdEl.style.opacity=Math.min(gravDirTimer/15,1);
+  } else {gdEl.style.opacity=0;}
+  // 3. Field border (decorative when bounds=off)
+  drawFieldBorder();
+
+  requestAnimationFrame(loop);
+}
+
+cv.addEventListener('pointerdown',e=>{
+  if(!running||paused)return;
+  const rect=cv.getBoundingClientRect();
+  const sx=(e.clientX-rect.left)*(W/rect.width);
+  const sy=(e.clientY-rect.top)*(H/rect.height);
+  const maxR=180;
+  shockwaves.push({x:sx,y:sy,r:5,maxR,age:0,maxAge:28});
+  // push balls
+  for(const b of balls){
+    const dx=b.x-sx,dy=b.y-sy,dist=Math.hypot(dx,dy)||1;
+    if(dist<maxR){
+      const force=(1-dist/maxR)*14;
+      b.vx+=dx/dist*force;
+      b.vy+=dy/dist*force;
+      // clamp speed
+      const spd=Math.hypot(b.vx,b.vy);
+      if(spd>b.speed*3){b.vx=b.vx/spd*b.speed*3;b.vy=b.vy/spd*b.speed*3;}
+    }
+  }
+  tone(220,0.12,'sine',0.25);
+});
+
+// ─── Pause UI ──────────────────────────────────────────────────────────────
+function openPause(){paused=true;renderTabs();loadBallUI(selectedBall);pmenu.classList.add('open');}
+function closePause(){paused=false;pmenu.classList.remove('open');lastT=performance.now();}
+document.getElementById('pausebtn').onclick=()=>{AC.resume();openPause();};
+document.getElementById('resumebtn1').onclick=closePause;
+document.getElementById('resumebtn2').onclick=closePause;
+document.addEventListener('keydown',e=>{
+  if(e.code==='KeyP'||e.code==='Escape'){paused?closePause():openPause();return;}
+  if(!running||paused)return;
+  const dirs={ArrowDown:[0,1,0],ArrowLeft:[-1,0,1],ArrowUp:[0,-1,2],ArrowRight:[1,0,3]};
+  const d=dirs[e.code];
+  if(d){
+    e.preventDefault();
+    if(!gravity){setGrav(1);}
+    [gravX,gravY,gravDir]=d;
+    tone(150+gravDir*40,.08,'triangle',.15);
+    showGravDir();
+  }
+});
+// swipe for mobile
+let swipeStart=null;
+cv.addEventListener('touchstart',e=>{if(e.touches.length===1)swipeStart={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+cv.addEventListener('touchend',e=>{
+  if(!swipeStart||!running||paused)return;
+  const dx=e.changedTouches[0].clientX-swipeStart.x,dy=e.changedTouches[0].clientY-swipeStart.y;
+  if(Math.hypot(dx,dy)<30)return;
+  if(!gravity)setGrav(1);
+  if(Math.abs(dx)>Math.abs(dy)){[gravX,gravY,gravDir]=dx>0?[1,0,3]:[-1,0,1];}
+  else{[gravX,gravY,gravDir]=dy>0?[0,1,0]:[0,-1,2];}
+  tone(150+gravDir*40,.08,'triangle',.15);
+  showGravDir();
+  swipeStart=null;
+},{passive:true});
+// gravity direction indicator
+let gravDirTimer=0;
+const GRAV_ICONS=['↓','←','↑','→'];
+function showGravDir(){
+  gravDirTimer=90;
+}
+// inject gravdir HUD element
+const gdEl=document.createElement('div');
+gdEl.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);font-size:32px;color:rgba(0,229,255,.9);text-shadow:0 0 16px rgba(0,229,255,.8);pointer-events:none;transition:opacity .3s;opacity:0;z-index:6;';
+document.body.appendChild(gdEl);
+
+document.querySelectorAll('.mtab').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  };
+});
+
+// Ball tabs
+function renderTabs(){
+  const ct=document.getElementById('balltabs');ct.innerHTML='';
+  balls.forEach((b,i)=>{
+    const btn=document.createElement('button');
+    btn.className='btab'+(i===selectedBall?' active':'');
+    btn.style.background=bColor(b.hue);btn.textContent=i+1;
+    btn.onclick=()=>{selectedBall=i;renderTabs();loadBallUI(i);};
+    ct.appendChild(btn);
+  });
+}
+document.getElementById('addball').onclick=()=>{
+  if(balls.length>=6)return;
+  balls.push(makeBall(balls.length,balls.length+1));
+  selectedBall=balls.length-1;renderTabs();loadBallUI(selectedBall);
+};
+document.getElementById('rmball').onclick=()=>{
+  if(balls.length<=1)return;
+  balls.splice(selectedBall,1);
+  selectedBall=Math.min(selectedBall,balls.length-1);
+  renderTabs();loadBallUI(selectedBall);
+};
+
+function loadBallUI(i){
+  const b=balls[i];
+  document.getElementById('ballsec-title').textContent=`ШАР ${i+1}`;
+  document.querySelectorAll('#shapebtns .sbtn').forEach(btn=>btn.classList.toggle('active',btn.dataset.shape===b.shape));
+  setSl('bvslider','bvval',b.speed);
+  setSl('bhslider','bhval',b.hue,v=>Math.round(v)+'°');
+  setSl('bhsslider','bhsval',b.hueShift);
+  setSl('bszslider','bszval',b.sizeAmp);
+}
+function setSl(id,vid,val,fmt){
+  document.getElementById(id).value=val;
+  document.getElementById(vid).textContent=fmt?fmt(val):val;
+}
+
+document.querySelectorAll('#shapebtns .sbtn').forEach(btn=>{
+  btn.onclick=()=>{
+    balls[selectedBall].shape=btn.dataset.shape;
+    document.querySelectorAll('#shapebtns .sbtn').forEach(x=>x.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+
+function mkBallSlider(id,vid,key,fmt){
+  const sl=document.getElementById(id),vl=document.getElementById(vid);
+  sl.oninput=()=>{
+    const v=parseFloat(sl.value);balls[selectedBall][key]=v;
+    vl.textContent=fmt?fmt(v):v;
+    if(key==='speed'){const b=balls[selectedBall],spd=Math.hypot(b.vx,b.vy)||1;b.vx=b.vx/spd*v;b.vy=b.vy/spd*v;}
+  };
+}
+mkBallSlider('bvslider','bvval','speed');
+mkBallSlider('bhslider','bhval','hue',v=>Math.round(v)+'°');
+mkBallSlider('bhsslider','bhsval','hueShift');
+mkBallSlider('bszslider','bszval','sizeAmp');
+
+// Gravity
+const grval=document.getElementById('grval');
+function setGrav(v){
+  gravity=v;grval.textContent=v?'ВКЛ':'ВЫКЛ';
+  document.getElementById('goff').classList.toggle('active',!v);
+  document.getElementById('gon').classList.toggle('active',!!v);
+  if(!v)for(const b of balls){const spd=Math.hypot(b.vx,b.vy)||1;b.vx=b.vx/spd*b.speed;b.vy=b.vy/spd*b.speed;}
+}
+setGrav(0);
+document.getElementById('goff').onclick=()=>setGrav(0);
+document.getElementById('gon').onclick=()=>setGrav(1);
+
+// Field bounds toggle
+{
+  const fbval=document.getElementById('fbval');
+  function setFieldBounds(on){
+    F.fieldBounds=on;fbval.textContent=on?'ВКЛ':'ВЫКЛ';
+    document.getElementById('fbon').classList.toggle('active',on);
+    document.getElementById('fboff').classList.toggle('active',!on);
+  }
+  document.getElementById('fbon').onclick=()=>setFieldBounds(true);
+  document.getElementById('fboff').onclick=()=>setFieldBounds(false);
+}
+
+// Outer BG controls
+{
+  const hs=document.getElementById('obhslider'),hv=document.getElementById('obhval');
+  const ls=document.getElementById('oblslider'),lv=document.getElementById('oblval');
+  hs.oninput=()=>{F.outerBgH=+hs.value;hv.textContent=hs.value+'°';};
+  ls.oninput=()=>{F.outerBgL=+ls.value;lv.textContent=ls.value+'%';};
+}
+const PATS=['solid','scan','dots'];
+document.querySelectorAll('[id^="pat-"]').forEach(btn=>{
+  btn.onclick=()=>{
+    F.outerPattern=btn.id.replace('pat-','');
+    document.querySelectorAll('[id^="pat-"]').forEach(x=>x.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+
+// Field shape buttons
+document.querySelectorAll('#fieldshapebtns .sbtn').forEach(btn=>{
+  btn.onclick=()=>{
+    F.fieldShape=btn.dataset.fshape;
+    document.querySelectorAll('#fieldshapebtns .sbtn').forEach(x=>x.classList.remove('active'));
+    btn.classList.add('active');
+    makeBumpers();
+  };
+});
+
+// Field scale slider
+{
+  const sl=document.getElementById('fscaleslider'),vl=document.getElementById('fscaleval');
+  sl.oninput=()=>{F.fieldScale=parseFloat(sl.value)/100;vl.textContent=sl.value;makeBumpers();};
+}
+
+// Field sliders
+function mkFieldSlider(id,vid,key,fmt,cb){
+  const sl=document.getElementById(id),vl=document.getElementById(vid);
+  sl.value=F[key];vl.textContent=fmt?fmt(F[key]):F[key];
+  sl.oninput=()=>{F[key]=parseFloat(sl.value);vl.textContent=fmt?fmt(sl.value):sl.value;if(cb)cb();};
+}
+mkFieldSlider('gsslider','gsval','gridSize');
+mkFieldSlider('gopaslider','gopal','gridOpa');
+mkFieldSlider('trailslider','trailval','trailLen');
+mkFieldSlider('fadeslider','fadeval','bgFade',v=>v+'%');
+mkFieldSlider('bumpslider','bumpval','bumperCount',null,makeBumpers);
+mkFieldSlider('bumpsizeslider','bumpsizeval','bumperSize',null,()=>{bumpers.forEach(b=>b.r=F.bumperSize);});
+
+function setGrid(on){
+  F.gridOn=on;document.getElementById('gridOnVal').textContent=on?'ВКЛ':'ВЫКЛ';
+  document.getElementById('gridOn').classList.toggle('active',on);
+  document.getElementById('gridOff').classList.toggle('active',!on);
+}
+document.getElementById('gridOn').onclick=()=>setGrid(true);
+document.getElementById('gridOff').onclick=()=>setGrid(false);
+document.getElementById('reshufflebtn').onclick=makeBumpers;
+
+// Start
+initBalls(1);running=true;lastT=performance.now();requestAnimationFrame(loop);
+</script>
